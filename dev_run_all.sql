@@ -1,0 +1,11 @@
+source 1_create_projects_table.sql;
+source 2_insert_into_projects.sql;
+source 3_delete_project.sql;
+source 4_get_contacts.sql;
+source 5_increment_counter.sql;
+source 6_reset_counter.sql;
+source 7_update_contacts_limit.sql;
+source 8_update_email.sql;
+source 9_update_limit_and_warning.sql;
+source 10_update_temperature.sql;
+source dev_update_contacts.sql;
