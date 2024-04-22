@@ -20,4 +20,4 @@ END;
 //
 delimiter ;
 
-call removeUser("uia57371");
+#call removeUser("uic12345");

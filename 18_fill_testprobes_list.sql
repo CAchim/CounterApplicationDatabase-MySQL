@@ -22,6 +22,7 @@ END;
 //
 delimiter ;
 
+/*
 call fillTestprobeslist("100-PRG2599S", "INGUN");
 call fillTestprobeslist("075-PRG2599H", "INGUN");
 call fillTestprobeslist("GKS-100 307 150 A 2000", "INGUN");
@@ -38,3 +39,4 @@ call fillTestprobeslist("GKS-100 303 150 A 2000", "INGUN");
 call fillTestprobeslist("GKS-938 307 180 A 1500", "INGUN");
 call fillTestprobeslist("PKS-171 214 050 A 0302 A", "INGUN");
 call fillTestprobeslist("HFS-819 303 090 A 12743 RV5", "INGUN");
+*/

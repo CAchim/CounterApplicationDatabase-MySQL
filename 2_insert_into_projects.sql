@@ -28,7 +28,7 @@ END;
 delimiter ;
 
 
-
+/*
 ######################### FCT PROJECT #########################
 call insertProject("BR213 GFX",91,"FCT","root",80000,70000,"root");
 call insertProject("BR222 Mopf KAF",92,"FCT","root",80000,70000,"root");
@@ -156,3 +156,4 @@ call insertProject("BR213 GFX",3047,"ICT","root",80000,70000,"root");
 call insertProject("VS30 HIGH",4042,"ICT","root",80000,70000,"root");
 call insertProject("VS30 LOW MID",4045,"ICT","root",80000,70000,"root");
 call insertProject("FORD UP375 MY18",4054,"ICT","root",80000,70000,"root");
+*/

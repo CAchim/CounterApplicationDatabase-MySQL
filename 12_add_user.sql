@@ -25,4 +25,4 @@ end if;
 END;
 //
 
-call addUser("Catalin", "Achim", "uia57371", "catalin-gheorghe.achim@continental.com", "Test1234", "admin");
+#call addUser("Catalin", "Achim", "uia57371", "catalin-gheorghe.achim@continental.com", "everything/3", "admin");
