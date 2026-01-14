@@ -1,21 +1,14 @@
-DROP PROCEDURE IF EXISTS updateLimitAndWarning;
+DROP PROCEDURE IF EXISTS updateOwnerEmail;
 DELIMITER //
 
-CREATE PROCEDURE updateLimitAndWarning(
+CREATE PROCEDURE updateOwnerEmail(
   IN adapter_codeParam   VARCHAR(50),
   IN fixture_typeParam   VARCHAR(30),
   IN fixture_plantParam  VARCHAR(100),
-  IN contacts_limitParam INT,
-  IN warning_atParam     INT,
+  IN owner_emailParam    TEXT,
   IN modified_byParam    VARCHAR(100)
 )
 proc_main: BEGIN
-  IF contacts_limitParam IS NULL OR warning_atParam IS NULL
-     OR contacts_limitParam <= warning_atParam THEN
-    SIGNAL SQLSTATE '45000'
-      SET MESSAGE_TEXT = 'contacts_limit must be greater than warning_at', MYSQL_ERRNO = 1003;
-  END IF;
-
   IF NOT EXISTS (
     SELECT 1 FROM Projects
      WHERE adapter_code = adapter_codeParam
@@ -27,16 +20,15 @@ proc_main: BEGIN
   END IF;
 
   UPDATE Projects
-     SET contacts_limit = contacts_limitParam,
-         warning_at     = warning_atParam,
-         modified_by    = modified_byParam,
-         last_update    = NOW()
-   WHERE adapter_code  = adapter_codeParam
-     AND fixture_type  = fixture_typeParam
+     SET owner_email = owner_emailParam,
+         modified_by = modified_byParam,
+         last_update = NOW()
+   WHERE adapter_code = adapter_codeParam
+     AND fixture_type = fixture_typeParam
      AND fixture_plant = fixture_plantParam;
 
   INSERT INTO db_logs(project_name, adapter_code, fixture_type, db_action, modified_by, last_update, fixture_plant)
-  SELECT project_name, adapter_code, fixture_type, 'Limit & warning updated', modified_byParam, NOW(), fixture_plant
+  SELECT project_name, adapter_code, fixture_type, 'Owner email updated', modified_byParam, NOW(), fixture_plant
     FROM Projects
    WHERE adapter_code = adapter_codeParam
      AND fixture_type = fixture_typeParam

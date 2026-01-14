@@ -1,0 +1,12 @@
+call addPlant("Timisoara");
+call addPlant("Novi Sad");
+call addPlant("Changsha");
+call addPlant("Karben");
+call addPlant("Babenhausen");
+call addPlant("Brandys");
+call addPlant("Guadalajara");
+call addPlant("Guarulhos");
+call addPlant("Wuhu");
+call addPlant("Sejong");
+call addPlant("Penang");
+call addPlant("Bangalore");

@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS user_otps;
+
+CREATE TABLE user_otps (
+  id         INT PRIMARY KEY AUTO_INCREMENT,
+  email      VARCHAR(255) NOT NULL,
+  otp        VARCHAR(6)   NOT NULL,
+  expires_at DATETIME     NOT NULL,
+  created_at DATETIME     DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
