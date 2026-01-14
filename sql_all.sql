@@ -248,7 +248,7 @@ CREATE TABLE IF NOT EXISTS Projects (
     project_name   VARCHAR(100) NOT NULL,
     adapter_code   VARCHAR(50)  NOT NULL,
     fixture_type   VARCHAR(30)  NOT NULL,
-    fixture_plant  VARCHAR(100) NOT NULL,
+    fixture_plant  VARCHAR(100) NOT NULL DEFAULT 'Timisoara',
     owner_email    TEXT         NOT NULL,
     contacts       INT          NOT NULL DEFAULT 0,
     contacts_limit INT          NOT NULL,
