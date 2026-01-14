@@ -207,6 +207,22 @@ SET @sql := IF(
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- Ensure Users.email is VARCHAR (not TEXT/BLOB) so unique index works
+SET @col_type := (
+    SELECT DATA_TYPE
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name   = 'Users'
+      AND column_name  = 'email'
+);
+SET @sql := IF(
+    @col_type IN ('text','blob','mediumtext','longtext'),
+    'ALTER TABLE Users MODIFY email VARCHAR(255) NOT NULL;',
+    'SELECT ''Users.email already VARCHAR'' AS info;'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+
 -- Ensure unique email
 SET @idx := (
   SELECT COUNT(*)
