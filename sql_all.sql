@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS Users (
     user_group    VARCHAR(100),
     plant_id      INT,
     group_id      INT,
-    user_token    VARCHAR(100) NOT NULL, 
+    user_token    VARCHAR(100) NOT NULL DEFAULT '16d5c19d0c22059793de23406140e67dbdc1f8a5ae579b5185ae83d562cda7e6', 
     must_change_password TINYINT(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
