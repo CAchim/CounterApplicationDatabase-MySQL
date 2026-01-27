@@ -5,11 +5,10 @@
 
 USE counterdb;
 
-
 SET @OLD_FOREIGN_KEY_CHECKS = @@FOREIGN_KEY_CHECKS;
 SET FOREIGN_KEY_CHECKS = 0;
 
-SET @OLD_SQL_NOTES=@@sql_notes; 
+SET @OLD_SQL_NOTES=@@sql_notes;
 SET sql_notes=0;
 
 -- =========================
@@ -90,7 +89,7 @@ CREATE TABLE IF NOT EXISTS Users (
     user_group    VARCHAR(100),
     plant_id      INT,
     group_id      INT,
-    user_token    VARCHAR(100) NOT NULL DEFAULT '16d5c19d0c22059793de23406140e67dbdc1f8a5ae579b5185ae83d562cda7e6', 
+    user_token    VARCHAR(100) NOT NULL DEFAULT '16d5c19d0c22059793de23406140e67dbdc1f8a5ae579b5185ae83d562cda7e6',
     must_change_password TINYINT(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -222,7 +221,6 @@ SET @sql := IF(
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
-
 -- Ensure unique email
 SET @idx := (
   SELECT COUNT(*)
@@ -237,7 +235,6 @@ SET @sql := IF(
   'SELECT ''uniq_user_email exists'' AS info;'
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
-
 
 
 /*------------------------------------------------------------
@@ -617,7 +614,6 @@ SET @sql := IF(
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 
-
 /*------------------------------------------------------------
   1.8 email_logs  (with fixture_plant + monitor index)
 ------------------------------------------------------------*/
@@ -627,7 +623,7 @@ CREATE TABLE IF NOT EXISTS email_logs (
     subject       VARCHAR(255) NOT NULL,
     adapter_code  VARCHAR(50)  NULL,
     fixture_type  VARCHAR(50)  NULL,
-    fixture_plant VARCHAR(100) NULL,      -- ✅ NEW
+    fixture_plant VARCHAR(100) NULL,
     project_name  VARCHAR(255) NULL,
     issue_type    VARCHAR(50) NULL,
     sent_to_group ENUM('ADMIN','ENGINEER','OWNER','OTHER') NULL,
@@ -667,7 +663,7 @@ SET @sql := IF(
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- fixture_plant (NEW)
+-- fixture_plant
 SET @col_exists := (
   SELECT COUNT(*)
   FROM information_schema.columns
@@ -817,6 +813,7 @@ SET @sql := IF(
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+
 -- =======================================================
 -- 2. PROCEDURES
 -- =======================================================
@@ -879,7 +876,6 @@ BEGIN
 END;
 //
 DELIMITER ;
-
 
 DROP PROCEDURE IF EXISTS fetchPlants;
 DELIMITER //
@@ -1326,7 +1322,6 @@ END;
 //
 DELIMITER ;
 
-
 -- fetchUsersByPlant for editUsers UI
 DROP PROCEDURE IF EXISTS fetchUsersByPlant;
 DELIMITER //
@@ -1365,6 +1360,7 @@ main_block: BEGIN
 END;
 //
 DELIMITER ;
+
 
 -- 2.4 Project management
 
@@ -1429,6 +1425,7 @@ CREATE PROCEDURE updateOwnerEmail(
 )
 proc_main: BEGIN
   DECLARE v_old_owner TEXT DEFAULT NULL;
+  DECLARE v_log_entry_id INT DEFAULT NULL;
 
   IF NOT EXISTS (
     SELECT 1 FROM Projects
@@ -1464,8 +1461,11 @@ proc_main: BEGIN
      AND fixture_plant = fixture_plantParam
    LIMIT 1;
 
+  SET v_log_entry_id = LAST_INSERT_ID();
+
   -- analytics event
   CALL addFixtureEvent(
+    v_log_entry_id,
     fixture_plantParam,
     adapter_codeParam,
     fixture_typeParam,
@@ -1493,6 +1493,7 @@ CREATE PROCEDURE updateLimitAndWarning(
 proc_main: BEGIN
   DECLARE v_old_limit INT DEFAULT 0;
   DECLARE v_old_warn  INT DEFAULT 0;
+  DECLARE v_log_entry_id INT DEFAULT NULL;
 
   IF contacts_limitParam IS NULL OR warning_atParam IS NULL
      OR contacts_limitParam <= warning_atParam THEN
@@ -1535,8 +1536,11 @@ proc_main: BEGIN
      AND fixture_plant = fixture_plantParam
    LIMIT 1;
 
+  SET v_log_entry_id = LAST_INSERT_ID();
+
   -- analytics event
   CALL addFixtureEvent(
+    v_log_entry_id,
     fixture_plantParam,
     adapter_codeParam,
     fixture_typeParam,
@@ -1561,6 +1565,7 @@ CREATE PROCEDURE resetCounterForProject(
 )
 proc_main: BEGIN
   DECLARE prev_contacts INT DEFAULT 0;
+  DECLARE v_log_entry_id INT DEFAULT NULL;
 
   IF NOT EXISTS (
     SELECT 1 FROM Projects
@@ -1608,8 +1613,11 @@ proc_main: BEGIN
     AND fixture_plant = fixture_plantParam
   LIMIT 1;
 
+  SET v_log_entry_id = LAST_INSERT_ID();
+
   -- analytics event
   CALL addFixtureEvent(
+    v_log_entry_id,
     fixture_plantParam,
     adapter_codeParam,
     fixture_typeParam,
@@ -1634,6 +1642,7 @@ CREATE PROCEDURE deleteProjectForPlant(
 )
 proc_main: BEGIN
   DECLARE v_project_name VARCHAR(100);
+  DECLARE v_log_entry_id INT DEFAULT NULL;
 
   IF NOT EXISTS (
     SELECT 1 FROM Projects
@@ -1654,8 +1663,11 @@ proc_main: BEGIN
   INSERT INTO db_logs(project_name, adapter_code, fixture_type, db_action, modified_by, last_update, fixture_plant)
   VALUES (v_project_name, adapter_codeParam, fixture_typeParam, 'Equipment deleted', modified_byParam, NOW(), fixture_plantParam);
 
+  SET v_log_entry_id = LAST_INSERT_ID();
+
   -- analytics event (do BEFORE delete so project_name is available)
   CALL addFixtureEvent(
+    v_log_entry_id,
     fixture_plantParam,
     adapter_codeParam,
     fixture_typeParam,
@@ -1730,7 +1742,6 @@ CREATE PROCEDURE regenerateProjectTestProbes(
   IN fixture_plantParam VARCHAR(100)
 )
 BEGIN
-  -- Optional safety for long probe lists
   SET SESSION group_concat_max_len = 100000;
 
   UPDATE Projects p
@@ -1767,6 +1778,7 @@ CREATE PROCEDURE addOrUpdateTestProbe(
 proc_main: BEGIN
   DECLARE v_exists INT DEFAULT 0;
   DECLARE v_old_qty INT DEFAULT NULL;
+  DECLARE v_log_entry_id INT DEFAULT NULL;
 
   IF qtyParam IS NULL OR qtyParam <= 0 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'qty must be > 0', MYSQL_ERRNO = 1201;
@@ -1811,8 +1823,11 @@ proc_main: BEGIN
      AND p.fixture_plant = fixture_plantParam
    LIMIT 1;
 
+  SET v_log_entry_id = LAST_INSERT_ID();
+
   -- ✅ analytics event
   CALL addFixtureEvent(
+    v_log_entry_id,
     fixture_plantParam,
     adapter_codeParam,
     fixture_typeParam,
@@ -1856,6 +1871,7 @@ CREATE PROCEDURE deleteTestProbe(
 )
 BEGIN
   DECLARE v_old_qty INT DEFAULT NULL;
+  DECLARE v_log_entry_id INT DEFAULT NULL;
 
   SELECT qty INTO v_old_qty
     FROM tp_description
@@ -1883,8 +1899,11 @@ BEGIN
      AND p.fixture_plant = fixture_plantParam
    LIMIT 1;
 
+  SET v_log_entry_id = LAST_INSERT_ID();
+
   -- analytics event
   CALL addFixtureEvent(
+    v_log_entry_id,
     fixture_plantParam,
     adapter_codeParam,
     fixture_typeParam,
@@ -1909,6 +1928,7 @@ CREATE PROCEDURE removeAllTestProbes(
 )
 BEGIN
   DECLARE v_prev_count INT DEFAULT 0;
+  DECLARE v_log_entry_id INT DEFAULT NULL;
 
   SELECT COUNT(*) INTO v_prev_count
     FROM tp_description
@@ -1933,8 +1953,11 @@ BEGIN
      AND p.fixture_plant = fixture_plantParam
    LIMIT 1;
 
+  SET v_log_entry_id = LAST_INSERT_ID();
+
   -- analytics event
   CALL addFixtureEvent(
+    v_log_entry_id,
     fixture_plantParam,
     adapter_codeParam,
     fixture_typeParam,
@@ -1949,7 +1972,6 @@ END;
 DELIMITER ;
 
 
-
 DROP PROCEDURE IF EXISTS incrementCounter;
 DELIMITER //
 
@@ -1959,7 +1981,6 @@ CREATE PROCEDURE incrementCounter(
   IN fixture_plantParam VARCHAR(100)
 )
 BEGIN
-  -- Check if the project exists for this plant
   IF NOT EXISTS (
     SELECT 1
       FROM Projects
@@ -1972,7 +1993,6 @@ BEGIN
           MYSQL_ERRNO  = 1001;
   END IF;
 
-  -- Increment contacts
   UPDATE Projects
      SET contacts = contacts + 1
    WHERE adapter_code  = adapter_codeParam
@@ -1982,8 +2002,6 @@ END;
 //
 DELIMITER ;
 
--- Example call:
--- CALL incrementCounter('113', 'FCT', 'YourPlantName');
 
 DROP PROCEDURE IF EXISTS updateContacts;
 DELIMITER //
@@ -1996,7 +2014,6 @@ CREATE PROCEDURE updateContacts(
   IN modified_byParam   VARCHAR(100)
 )
 BEGIN
-  -- Check if the project exists for this plant
   IF NOT EXISTS (
     SELECT 1
       FROM Projects
@@ -2009,7 +2026,6 @@ BEGIN
           MYSQL_ERRNO  = 1001;
   END IF;
 
-  -- Update contacts and meta info
   UPDATE Projects
      SET contacts    = contactsParam,
          modified_by = modified_byParam,
@@ -2018,7 +2034,6 @@ BEGIN
      AND fixture_type  = fixture_typeParam
      AND fixture_plant = fixture_plantParam;
 
-  -- Log the update, including the new contacts value
   INSERT INTO db_logs (
     project_name,
     adapter_code,
@@ -2044,9 +2059,6 @@ BEGIN
 END;
 //
 DELIMITER ;
-
--- Example call:
--- CALL updateContacts('101', 'FCT', 'YourPlantName', 524, 'admin@plant.com');
 
 
 -- 2.7 Email logging
@@ -2101,14 +2113,10 @@ END;
 DELIMITER ;
 
 
-/*------------------------------------------------------------
-  1.x Ensure standard Plants and enforce ONLY 3 groups per plant
-  - Add missing plants from the standard list
-  - Delete all non-standard groups
-  - For every plant, ensure groups: admin, engineer, technician
-------------------------------------------------------------*/
+-- =======================================================
+-- 1.x Ensure standard Plants and enforce ONLY 3 groups per plant
+-- =======================================================
 
--- 1) Ensure the standard plants exist (insert only missing ones)
 INSERT INTO Plants (plant_name)
 SELECT v.plant_name
 FROM (
@@ -2129,15 +2137,10 @@ LEFT JOIN Plants p
   ON p.plant_name = v.plant_name
 WHERE p.entry_id IS NULL;
 
--- 2) SAFE standardization: move users from non-standard groups to engineer,
---    then delete only unused non-standard groups.
-
--- Ensure target group exists per plant
 INSERT IGNORE INTO user_groups (plant_id, group_name)
 SELECT p.entry_id, 'engineer'
 FROM Plants p;
 
--- Repoint users from non-standard groups to 'engineer' (within same plant)
 UPDATE Users u
 JOIN user_groups g_old ON g_old.entry_id = u.group_id
 JOIN user_groups g_new ON g_new.plant_id = g_old.plant_id AND g_new.group_name = 'engineer'
@@ -2145,14 +2148,12 @@ SET u.group_id = g_new.entry_id,
     u.user_group = 'engineer'
 WHERE g_old.group_name NOT IN ('admin','engineer','technician');
 
--- Now delete only unused non-standard groups (no users attached)
 DELETE g
 FROM user_groups g
 LEFT JOIN Users u ON u.group_id = g.entry_id
 WHERE g.group_name NOT IN ('admin','engineer','technician')
   AND u.entry_id IS NULL;
 
--- 3) Ensure default groups (admin, engineer, technician) exist for each plant
 INSERT INTO user_groups (plant_id, group_name)
 SELECT p.entry_id, g.group_name
 FROM Plants p
@@ -2166,9 +2167,9 @@ LEFT JOIN user_groups ug
  AND ug.group_name = g.group_name
 WHERE ug.entry_id IS NULL;
 
+
 -- =============================
 -- 3. ANALYTICS TABLES + PROCS
--- (separate storage; does not change existing behavior)
 -- =============================
 
 /*===========================================================
@@ -2180,7 +2181,7 @@ CREATE TABLE IF NOT EXISTS fixture_samples_hourly (
     fixture_plant  VARCHAR(100) NOT NULL,
     adapter_code   VARCHAR(50)  NOT NULL,
     fixture_type   VARCHAR(30)  NOT NULL,
-    sample_ts      DATETIME     NOT NULL,  -- truncated to hour, e.g. 2025-12-18 12:00:00
+    sample_ts      DATETIME     NOT NULL,
 
     project_name   VARCHAR(100) NULL,
     owner_email    TEXT         NULL,
@@ -2193,7 +2194,6 @@ CREATE TABLE IF NOT EXISTS fixture_samples_hourly (
     captured_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Unique: one record per fixture per hour
 SET @idx := (
   SELECT COUNT(*)
   FROM information_schema.statistics
@@ -2209,7 +2209,6 @@ SET @sql := IF(
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- Lookup/range index
 SET @idx := (
   SELECT COUNT(*)
   FROM information_schema.statistics
@@ -2228,23 +2227,40 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 /*===========================================================
   3.2 FIXTURE EVENTS (new, separate table)
+  ✅ UPDATED: db_log_entry_id link + index + addFixtureEvent signature
 ===========================================================*/
 
 CREATE TABLE IF NOT EXISTS fixture_events (
-    entry_id       BIGINT PRIMARY KEY NOT NULL AUTO_INCREMENT,
-    fixture_plant  VARCHAR(100) NOT NULL,
-    adapter_code   VARCHAR(50)  NOT NULL,
-    fixture_type   VARCHAR(30)  NOT NULL,
-    project_name   VARCHAR(100) NULL,
+    entry_id        BIGINT PRIMARY KEY NOT NULL AUTO_INCREMENT,
+    db_log_entry_id INT NULL,              -- ✅ NEW
+    fixture_plant   VARCHAR(100) NOT NULL,
+    adapter_code    VARCHAR(50)  NOT NULL,
+    fixture_type    VARCHAR(30)  NOT NULL,
+    project_name    VARCHAR(100) NULL,
 
-    event_type     VARCHAR(50)  NOT NULL,
-    event_details  TEXT         NULL,       -- free text or JSON string
-    old_value      TEXT         NULL,
-    new_value      TEXT         NULL,
+    event_type      VARCHAR(50)  NOT NULL,
+    event_details   TEXT         NULL,
+    old_value       TEXT         NULL,
+    new_value       TEXT         NULL,
 
-    actor          VARCHAR(255) NULL,       -- email/user_id
-    created_at     TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    actor           VARCHAR(255) NULL,
+    created_at      TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- ensure db_log_entry_id exists on legacy fixture_events
+SET @col_exists := (
+  SELECT COUNT(*)
+  FROM information_schema.columns
+  WHERE table_schema = DATABASE()
+    AND table_name   = 'fixture_events'
+    AND column_name  = 'db_log_entry_id'
+);
+SET @sql := IF(
+  @col_exists = 0,
+  'ALTER TABLE fixture_events ADD COLUMN db_log_entry_id INT NULL AFTER entry_id;',
+  'SELECT ''fixture_events.db_log_entry_id exists'' AS info;'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 SET @idx := (
   SELECT COUNT(*)
@@ -2291,26 +2307,40 @@ SET @sql := IF(
 );
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
+-- index for fast join by log id
+SET @idx := (
+  SELECT COUNT(*)
+  FROM information_schema.statistics
+  WHERE table_schema = DATABASE()
+    AND table_name   = 'fixture_events'
+    AND index_name   = 'idx_fixture_events_logid'
+);
+SET @sql := IF(
+  @idx = 0,
+  'CREATE INDEX idx_fixture_events_logid
+     ON fixture_events (db_log_entry_id);',
+  'SELECT ''idx_fixture_events_logid exists'' AS info;'
+);
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+
 DROP PROCEDURE IF EXISTS addFixtureEvent;
 DELIMITER //
 
 CREATE PROCEDURE addFixtureEvent(
-  IN p_fixture_plant VARCHAR(100),
-  IN p_adapter_code  VARCHAR(50),
-  IN p_fixture_type  VARCHAR(30),
-  IN p_event_type    VARCHAR(50),
-  IN p_event_details TEXT,
-  IN p_old_value     TEXT,
-  IN p_new_value     TEXT,
-  IN p_actor         VARCHAR(255)
+  IN p_db_log_entry_id INT,          -- ✅ NEW
+  IN p_fixture_plant   VARCHAR(100),
+  IN p_adapter_code    VARCHAR(50),
+  IN p_fixture_type    VARCHAR(30),
+  IN p_event_type      VARCHAR(50),
+  IN p_event_details   TEXT,
+  IN p_old_value       TEXT,
+  IN p_new_value       TEXT,
+  IN p_actor           VARCHAR(255)
 )
 proc_main: BEGIN
   DECLARE v_project_name VARCHAR(100) DEFAULT NULL;
 
-  /* ---- DEDUP GUARD (prevents accidental double inserts) ----
-     If the same event is already logged in the last 2 seconds,
-     skip inserting again.
-  */
   IF EXISTS (
     SELECT 1
       FROM fixture_events fe
@@ -2328,7 +2358,6 @@ proc_main: BEGIN
     LEAVE proc_main;
   END IF;
 
-  -- If project exists, capture name; otherwise keep NULL and still log event
   SELECT project_name INTO v_project_name
     FROM Projects
    WHERE fixture_plant = p_fixture_plant
@@ -2338,24 +2367,17 @@ proc_main: BEGIN
 
   INSERT INTO fixture_events(
     fixture_plant, adapter_code, fixture_type, project_name,
+    db_log_entry_id,
     event_type, event_details, old_value, new_value, actor, created_at
   ) VALUES (
     p_fixture_plant, p_adapter_code, p_fixture_type, v_project_name,
+    p_db_log_entry_id,
     p_event_type, p_event_details, p_old_value, p_new_value, p_actor, NOW()
   );
 END;
 //
 DELIMITER ;
 
-
-
-/*===========================================================
-  3.3 PROCEDURE: captureHourlySamples
-  - Safe to call many times per hour (UPSERT)
-  - plant filter:
-      CALL captureHourlySamples('');         -- all plants
-      CALL captureHourlySamples('Timisoara') -- one plant
-===========================================================*/
 
 DROP PROCEDURE IF EXISTS captureHourlySamples;
 DELIMITER //
@@ -2364,7 +2386,6 @@ CREATE PROCEDURE captureHourlySamples(IN fixture_plantParam VARCHAR(100))
 BEGIN
   DECLARE v_hour_ts DATETIME;
 
-  -- truncate to hour
   SET v_hour_ts = STR_TO_DATE(DATE_FORMAT(NOW(), '%Y-%m-%d %H:00:00'), '%Y-%m-%d %H:%i:%s');
 
   INSERT INTO fixture_samples_hourly (
@@ -2412,7 +2433,6 @@ proc_main: BEGIN
 
   SET v_now = NOW();
 
-  -- last reset time (if any)
   SELECT MAX(created_at) INTO v_reset_ts
     FROM fixture_events
    WHERE fixture_plant = p_fixture_plant
@@ -2420,13 +2440,11 @@ proc_main: BEGIN
      AND fixture_type  = p_fixture_type
      AND event_type    = 'RESET';
 
-  -- analysis window start = max(last reset, now-lookback)
   SET v_since = DATE_SUB(v_now, INTERVAL IFNULL(NULLIF(p_lookback_hours,0), 24) HOUR);
   IF v_reset_ts IS NOT NULL AND v_reset_ts > v_since THEN
     SET v_since = v_reset_ts;
   END IF;
 
-  -- current project info
   SELECT contacts, warning_at, contacts_limit
     INTO v_contacts, v_warning, v_limit
     FROM Projects
@@ -2435,8 +2453,6 @@ proc_main: BEGIN
      AND fixture_type  = p_fixture_type
    LIMIT 1;
 
-  -- Compute burn rate as avg positive delta per hour
-  -- MySQL 8+ window function
   SELECT
     v_since AS window_start,
     v_now   AS window_end,
@@ -2504,6 +2520,3 @@ DELIMITER ;
 -- =============================
 SET FOREIGN_KEY_CHECKS = @OLD_FOREIGN_KEY_CHECKS;
 SET sql_notes=@OLD_SQL_NOTES;
-
-
-
